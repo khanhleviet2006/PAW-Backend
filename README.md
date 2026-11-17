@@ -2,6 +2,10 @@
 
 Backend FastAPI + SQLAlchemy cho cột cảm biến có thể rút/cắm ở nhiều vị trí. Có PostgreSQL, SQLite để thử nhanh, Alembic migrations, API có xác thực, snapshot bản đồ, SSE, lịch sử đo và cảnh báo. Đây là backend mới; chưa thay firmware hoặc ingest/ACK của hệ thống cũ.
 
+## Bản đồ GPS offline mới
+
+Đã bổ sung API điểm đo lịch sử, catalog/tile ảnh nội bộ và tùy chọn phục vụ Vite build. Xem [hướng dẫn MapLibre + MapCN + GeoTIFF offline](docs/OFFLINE_MAP.md). Chưa có ảnh vệ tinh được cung cấp để nhập vào máy chủ.
+
 ## Chạy trên Windows — cách đơn giản
 
 Cài Python **3.12 hoặc 3.13** từ python.org, chọn “Add Python to PATH”. Mở PowerShell trong thư mục muốn lưu dự án:

@@ -9,7 +9,8 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
@@ -17,6 +18,8 @@ from . import models as m
 from .auth import Principal, authenticate, digest
 from .config import Settings
 from .db import database, now, utc
+from .field_map import field_payload, point_collection
+from .imagery import router as imagery_router
 from .responses import AckOut, DeploymentOut, HistoryOut, SnapshotOut
 from .schemas import (
     DEFAULT_THRESHOLDS,
@@ -61,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
         description="Node di động GPS, lần đặt node, số đo và SSE. API mới; không thay thế firmware ingest/ACK cũ khi chưa xác minh.",
     )
+    app.include_router(imagery_router)
     app.state.settings, app.state.sessions, app.state.engine = config, sessions, engine
     app.state.clock = now
     app.add_middleware(
@@ -292,15 +296,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         publish(session, farm_id, "measurement_session.created", session_id=body.id)
         return {"id": body.id, "measurement_phase": "PRE_PAW"}
 
-    def read_snapshot(farm_id):
+    def read_snapshot(farm_id, include_points=False):
         with sessions.begin() as session:
-            return snapshot(session, farm_id, config, clock())
+            data = snapshot(session, farm_id, config, clock())
+            if include_points:
+                if data["farm"]["source"] != "sensor":
+                    raise HTTPException(409, "Bản đồ GPS thực không sử dụng dữ liệu mô phỏng")
+                return field_payload(session, data)
+            return data
 
     @app.get("/v1/farms/{farm_id}/map", response_model=SnapshotOut)
     def map_snapshot(farm_id: str, actor: Actor, response: Response):
         actor.require(farm_id, "viewer", "operator")
         response.headers["Cache-Control"] = "no-store"
         return read_snapshot(farm_id)
+
+    @app.get("/v1/farms/{farm_id}/map-points")
+    def map_points(
+        farm_id: str,
+        actor: Actor,
+        session: DB,
+        limit: int = Query(1000, ge=1, le=10000),
+        after: str | None = Query(None, max_length=80),
+    ):
+        actor.require(farm_id, "viewer", "operator")
+        farm = lock_farm(session, farm_id)
+        if farm.source != "sensor":
+            raise HTTPException(409, "Bản đồ GPS thực không sử dụng dữ liệu mô phỏng")
+        return point_collection(session, farm_id, limit, after)
 
     @app.get("/v1/farms/{farm_id}/alerts")
     def alerts(farm_id: str, actor: Actor):
@@ -433,13 +456,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         actor: Actor,
         since: int | None = Query(None, ge=0, le=9223372036854775807),
         last_event_id: str | None = Header(None, max_length=20),
+        include_map_points: bool = False,
     ):
         actor.require(farm_id, "viewer", "operator")
         if last_event_id is not None:
             if not last_event_id.isdecimal() or int(last_event_id) > 9223372036854775807:
                 raise HTTPException(422, "Last-Event-ID không hợp lệ")
             since = int(last_event_id)
-        initial = await asyncio.to_thread(read_snapshot, farm_id)
+        initial = await asyncio.to_thread(read_snapshot, farm_id, include_map_points)
         if since is not None and since > initial["cursor"]:
             raise HTTPException(409, "Cursor không thuộc lịch sử hiện tại; cần lấy snapshot mới")
 
@@ -470,12 +494,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     yield ": heartbeat\n\n"
                     heartbeat = 0
                 await asyncio.sleep(config.sse_poll_seconds)
-                data = await asyncio.to_thread(read_snapshot, farm_id)
+                data = await asyncio.to_thread(read_snapshot, farm_id, include_map_points)
 
         return StreamingResponse(
             stream(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
+
+    if config.frontend_dist is not None:
+        root = config.frontend_dist.resolve()
+        if not (root / "index.html").is_file():
+            raise RuntimeError("PAW_FRONTEND_DIST chưa có Vite build index.html")
+        app.mount("/assets", StaticFiles(directory=root / "assets"), name="frontend-assets")
+
+        @app.get("/{page:path}", include_in_schema=False)
+        def spa(page: str):
+            if page.startswith(("v1/", "assets/")):
+                raise HTTPException(404, "Không tìm thấy tài nguyên")
+            return FileResponse(root / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app

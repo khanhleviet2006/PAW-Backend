@@ -15,3 +15,7 @@ htmlcov/
 .DS_Store
 *.secrets.json
 gateway-outbox/
+data/
+*.tif
+*.tiff
+*.mbtiles

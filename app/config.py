@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PAW_", env_file=".env", extra="ignore")
+    imagery_dir: Path = Path("data/imagery")
+    frontend_dist: Path | None = None
     database_url: str = "sqlite:///./paw.db"
     admin_token: SecretStr
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
