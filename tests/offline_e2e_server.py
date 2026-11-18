@@ -30,6 +30,9 @@ app = create_app(
         frontend_dist=Path(os.environ["PAW_E2E_FRONTEND_DIST"]),
         stabilization_seconds=0,
         sse_poll_seconds=0.1,
+        viewer_farm_id="field-test-" + os.environ.get("PAW_E2E_PROJECT", "desktop-1366"),
+        viewer_networks=["127.0.0.1/32"],
+        viewer_origins=["http://127.0.0.1:18082"],
     )
 )
 Base.metadata.create_all(app.state.engine)
@@ -166,4 +169,5 @@ uvicorn.run(
     port=int(os.environ.get("PAW_E2E_PORT", "18082")),
     log_level="warning",
     access_log=False,
+    proxy_headers=False,
 )

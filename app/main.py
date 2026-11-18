@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from . import models as m
-from .auth import Principal, authenticate, digest
+from .auth import Principal, authenticate, deployment_viewer, digest
 from .config import Settings
 from .db import database, now, utc
 from .field_map import field_payload, point_collection
@@ -108,6 +108,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     def health():
         return {"status": "ok", "version": "1.0.0"}
+
+    @app.get("/v1/viewer-bootstrap")
+    def viewer_bootstrap(request: Request, response: Response):
+        response.headers["Cache-Control"] = "no-store"
+        viewer = deployment_viewer(request)
+        if not viewer:
+            raise HTTPException(
+                403, "Ứng dụng chưa được cấp quyền xem. Vui lòng liên hệ quản trị viên."
+            )
+        with sessions() as session:
+            farm = session.get(m.Farm, viewer.farm_id)
+            if not farm or farm.source != "sensor":
+                raise HTTPException(
+                    503, "Khu quan trắc chưa sẵn sàng. Quản trị viên cần hoàn tất bàn giao."
+                )
+        return {"farm_id": viewer.farm_id}
 
     @app.get("/ready")
     def ready(session: DB):
@@ -468,6 +484,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(409, "Cursor không thuộc lịch sử hiện tại; cần lấy snapshot mới")
 
         def key_active():
+            if actor.id == "deployment-viewer":
+                return deployment_viewer(request) == actor
             if actor.role == "admin":
                 return True
             with sessions() as session:

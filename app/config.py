@@ -1,3 +1,4 @@
+from ipaddress import ip_network
 from pathlib import Path
 
 from pydantic import Field, SecretStr, field_validator
@@ -7,6 +8,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PAW_", env_file=".env", extra="ignore")
     active_imagery_ids: dict[str, str] = {}
+    viewer_farm_id: str | None = None
+    viewer_networks: list[str] = []
+    viewer_origins: list[str] = []
+
+    @field_validator("viewer_networks")
+    @classmethod
+    def valid_networks(cls, values: list[str]) -> list[str]:
+        for value in values:
+            ip_network(value, strict=True)
+        return values
+
     imagery_dir: Path = Path("data/imagery")
     frontend_dist: Path | None = None
     database_url: str = "sqlite:///./paw.db"

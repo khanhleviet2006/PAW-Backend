@@ -1,3 +1,5 @@
+> Luồng hiện tại: [Khởi động không cần thao tác](docs/ZERO_INTERACTION_STARTUP.md). Hướng dẫn nhập khu/mã truy cập trong tài liệu cũ đã được thay thế.
+
 # PAW Backend — Node cảm biến di động GPS
 
 Backend FastAPI + SQLAlchemy cho cột cảm biến có thể rút/cắm ở nhiều vị trí. Có PostgreSQL, SQLite để thử nhanh, Alembic migrations, API có xác thực, snapshot bản đồ, SSE, lịch sử đo và cảnh báo. Đây là backend mới; chưa thay firmware hoặc ingest/ACK của hệ thống cũ.

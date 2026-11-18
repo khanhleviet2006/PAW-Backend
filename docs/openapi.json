@@ -194,6 +194,22 @@
         }
       }
     },
+    "/v1/viewer-bootstrap": {
+      "get": {
+        "summary": "Viewer Bootstrap",
+        "operationId": "viewer_bootstrap_v1_viewer_bootstrap_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/ready": {
       "get": {
         "summary": "Ready",

@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from dataclasses import dataclass
+from ipaddress import ip_address, ip_network
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -9,6 +10,27 @@ from sqlalchemy import select
 from .models import ApiKey
 
 bearer = HTTPBearer(auto_error=False)
+
+
+def deployment_viewer(request: Request) -> "Principal | None":
+    """Explicit deployment-only read grant. Never trust X-Forwarded-For/Host."""
+    settings = request.app.state.settings
+    if not settings.viewer_farm_id or not request.client:
+        return None
+    origin = str(request.base_url).rstrip("/")
+    if origin not in settings.viewer_origins:
+        return None
+    if request.headers.get("origin", origin) not in settings.viewer_origins:
+        return None
+    try:
+        address = ip_address(request.client.host)
+    except ValueError:
+        return None
+    if not any(address in ip_network(net) for net in settings.viewer_networks):
+        return None
+    if request.method != "GET":
+        return None
+    return Principal("deployment-viewer", "viewer", settings.viewer_farm_id)
 
 
 def digest(token: str) -> str:
@@ -32,6 +54,11 @@ def authenticate(
     request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer)
 ):
     if not credentials:
+        if request.headers.get("authorization"):
+            raise HTTPException(401, "Thông tin xác thực không hợp lệ")
+        viewer = deployment_viewer(request)
+        if viewer:
+            return viewer
         raise HTTPException(401, "Cần Bearer token", headers={"WWW-Authenticate": "Bearer"})
     token = credentials.credentials
     if secrets.compare_digest(token, request.app.state.settings.admin_token.get_secret_value()):
