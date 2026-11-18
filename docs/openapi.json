@@ -51,6 +51,52 @@
         }
       }
     },
+    "/v1/farms/{farm_id}/imagery/active": {
+      "get": {
+        "tags": [
+          "Offline imagery"
+        ],
+        "summary": "Active Imagery",
+        "description": "An administrator selects the single basemap in server configuration, not the viewer UI.",
+        "operationId": "active_imagery_v1_farms__farm_id__imagery_active_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "farm_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Farm Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/farms/{farm_id}/imagery/{identifier}/{z}/{x}/{y}.png": {
       "get": {
         "tags": [

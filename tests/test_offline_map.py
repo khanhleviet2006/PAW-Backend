@@ -157,3 +157,42 @@ def test_spa_serving_has_no_api_fallback(tmp_path):
         assert "LOCAL PAW TEST" in client.get("/field-map").text
         assert client.get("/assets/worker.js").status_code == 200
         assert client.get("/v1/missing").status_code == 404
+
+
+def test_active_imagery_never_guesses_between_multiple_datasets(real_contract, tmp_path):
+    import json
+    import sqlite3
+
+    e = real_contract
+    root = e["app"].state.settings.imagery_dir
+    root.mkdir()
+    for name in ["older", "newer"]:
+        record = {
+            "id": name,
+            "farm_id": "farm",
+            "offline_rights_confirmed": True,
+            "attribution": "Test pixels only",
+            "minzoom": 10,
+            "maxzoom": 10,
+        }
+        with sqlite3.connect(root / f"{name}.mbtiles") as db:
+            db.execute("CREATE TABLE metadata(name TEXT PRIMARY KEY,value TEXT)")
+            db.execute("INSERT INTO metadata VALUES(?,?)", ("paw", json.dumps(record)))
+    path = "/v1/farms/farm/imagery/active"
+    headers = e["headers"]["viewer"]
+    result = e["client"].get(path, headers=headers).json()
+    assert result["item"] is None
+    assert result["notice"] == "Chưa cài đặt dữ liệu ảnh vệ tinh khu vực"
+    e["app"].state.settings.active_imagery_ids = {"farm": "newer"}
+    assert e["client"].get(path, headers=headers).json()["item"]["id"] == "newer"
+    e["app"].state.settings.active_imagery_ids = {"farm": "not-installed"}
+    assert e["client"].get(path, headers=headers).json()["item"] is None  # never fallback to older
+    assert e["client"].get(path).status_code == 401
+    assert e["client"].get(path, headers=e["headers"]["gateway"]).status_code == 403
+
+
+def test_missing_active_imagery_exact_notice(real_contract):
+    e = real_contract
+    result = e["client"].get("/v1/farms/farm/imagery/active", headers=e["headers"]["viewer"])
+    assert result.status_code == 200
+    assert result.json() == {"item": None, "notice": "Chưa cài đặt dữ liệu ảnh vệ tinh khu vực"}

@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PAW_", env_file=".env", extra="ignore")
+    active_imagery_ids: dict[str, str] = {}
     imagery_dir: Path = Path("data/imagery")
     frontend_dist: Path | None = None
     database_url: str = "sqlite:///./paw.db"

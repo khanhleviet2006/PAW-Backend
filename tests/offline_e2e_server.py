@@ -146,8 +146,13 @@ for project in ["desktop-1920", "desktop-1366", "mobile-390", "mobile-360"]:
         [1, 2, 3],
         max_tiles=20,
     )
+    empty_farm = f"empty-test-{project}"
+    post("/v1/farms", {"id": empty_farm, "name": "TEST ONLY — NO IMAGERY", "source": "sensor"})
+    empty_viewer = post(f"/v1/farms/{empty_farm}/keys", {"role": "viewer"})["token"]
     credentials[project] = {
         "farm": farm,
+        "empty_farm": empty_farm,
+        "empty_viewer": empty_viewer,
         "node": node,
         "sensor": sensor,
         "deployment": deployment["id"],

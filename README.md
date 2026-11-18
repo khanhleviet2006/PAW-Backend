@@ -6,6 +6,10 @@ Backend FastAPI + SQLAlchemy cho cột cảm biến có thể rút/cắm ở nhi
 
 Đã bổ sung API điểm đo lịch sử, catalog/tile ảnh nội bộ và tùy chọn phục vụ Vite build. Xem [hướng dẫn MapLibre + MapCN + GeoTIFF offline](docs/OFFLINE_MAP.md). Chưa có ảnh vệ tinh được cung cấp để nhập vào máy chủ.
 
+## Bản đồ người dùng thống nhất — 19/11/2026
+
+Bản đồ tại `/map`; `/` và `/field-map` chuyển về cùng trang. Quản trị viên chọn một bộ ảnh lưu nội bộ bằng PAW_ACTIVE_IMAGERY_IDS, không có công cụ chọn nền/import trong giao diện người dùng. Xem [hướng dẫn thay file trên Windows](docs/USER_MAP_UPDATE.md) và [báo cáo](docs/USER_MAP_REPORT.md). Không cần Docker hoặc WSL; giữ nguyên kết nối PostgreSQL hiện tại.
+
 ## Chạy trên Windows — cách đơn giản
 
 Cài Python **3.12 hoặc 3.13** từ python.org, chọn “Add Python to PATH”. Mở PowerShell trong thư mục muốn lưu dự án:
@@ -123,8 +127,10 @@ API trừ health/ready/docs cần `Authorization: Bearer <token>`. Dùng admin t
 
 Linux/macOS: thay `.\.venv\Scripts\python.exe` bằng `.venv/bin/python`. Có `uv.lock` nếu dùng uv: `uv sync --frozen`, `uv run pytest`. Không chạy tests trên database thật; cấu hình PostgreSQL test phải có tên chứa `paw_test`, test sẽ tạo/xóa các bảng trong database đó.
 
-## Tình trạng tích hợp
+## Tình trạng tích hợp hiện hành
 
-Backend hoạt động độc lập với simulator và HTTP/SSE. Frontend T8B chưa được sửa trong lần này: LIVE adapter cũ gán một node/vùng cố định và heatmap geographic đang tắt. Không chỉ đổi URL là có bản đồ node di động. Hợp đồng và các thay đổi frontend cần thiết được ghi rõ trong tài liệu tích hợp; không trộn backend simulation với số đo thực.
+Frontend có một màn hình `/map` dùng MapLibre + MapCN, đọc GPS/lịch sử/SSE và một bộ ảnh active từ backend. Hai đường dẫn `/` và `/field-map` chuyển về cùng màn hình. Quản trị viên cấu hình ảnh qua PAW_ACTIVE_IMAGERY_IDS; người dùng không có công cụ nhập hoặc đổi nền.
 
-Chưa có firmware STM32 hoặc thông số board/module để tạo `.bin/.hex` và lệnh nạp đúng. Backend chạy trên máy tính/server, không nạp vào STM32. Chưa nghiệm thu phần cứng, Google Maps thực, Windows thực hoặc triển khai production.
+Giữ nguyên domain, dữ liệu, ingest/ACK và các chức năng history/alerts/simulator hiện có. Chưa có ảnh vệ tinh khu đất hoặc thiết bị thật để nghiệm thu ngoài thực địa. Backend chạy trực tiếp bằng Python và kết nối PostgreSQL sẵn có; cập nhật này không yêu cầu Docker/WSL hay migration mới. Xem docs/USER_MAP_UPDATE.md để thay file cục bộ có backup, không dùng GitHub.
+
+Chưa có firmware STM32 hoặc thông số board/module để tạo `.bin/.hex` và lệnh nạp đúng. Backend chạy trên máy tính/server, không nạp vào STM32.

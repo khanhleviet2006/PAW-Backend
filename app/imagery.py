@@ -61,6 +61,35 @@ def catalog(farm_id: str, request: Request, actor: Principal = Depends(authentic
     }
 
 
+@router.get("/active")
+def active_imagery(farm_id: str, request: Request, actor: Principal = Depends(authenticate)):
+    """An administrator selects the single basemap in server configuration, not the viewer UI."""
+    actor.require(farm_id, "viewer", "operator")
+    configured = request.app.state.settings.active_imagery_ids.get(farm_id)
+    notice = "Chưa cài đặt dữ liệu ảnh vệ tinh khu vực"
+    if configured:
+        try:
+            path = dataset(request.app.state.settings.imagery_dir, configured)
+            record = metadata(path)
+        except HTTPException as error:
+            if error.status_code not in (404, 422):
+                raise
+            return {"item": None, "notice": notice}
+        if record["farm_id"] != farm_id:
+            return {"item": None, "notice": notice}
+        return {
+            "item": {**record, "id": configured, "attribution": html.escape(record["attribution"])},
+            "notice": "",
+        }
+    items = catalog(farm_id, request, actor)["items"]
+    # A single installed dataset needs no extra setting. Ambiguous catalogs never
+    # silently switch backgrounds; an admin must select the intended dataset.
+    return {
+        "item": items[0] if len(items) == 1 else None,
+        "notice": "" if len(items) == 1 else notice,
+    }
+
+
 @router.get("/{identifier}/{z}/{x}/{y}.png")
 def tile(
     farm_id: str,
